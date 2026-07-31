@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router'
+import { toast } from 'sonner'
 import {
   Plus,
   Search,
@@ -7,10 +8,12 @@ import {
   AlertTriangle,
   ArrowRight,
   Clock,
+  Hash,
 } from 'lucide-react'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
+import { Card, CardContent } from '@/components/ui/Card'
 import {
   claims,
   getSlaProgress,
@@ -56,6 +59,16 @@ function slaBarColor(tone) {
   if (tone === 'success') return status.positive.bar
   if (tone === 'warning') return status.attention.bar
   return status.active.bar
+}
+
+function findClaimByReference(ref) {
+  const q = ref.trim().toLowerCase()
+  if (!q) return null
+  return (
+    claims.find((c) => c.reference.toLowerCase() === q) ??
+    claims.find((c) => c.id.toLowerCase() === q) ??
+    claims.find((c) => c.reference.toLowerCase().includes(q))
+  )
 }
 
 function ClaimCard({ claim, onUpload }) {
@@ -225,6 +238,23 @@ export default function Claims() {
   const navigate = useNavigate()
   const [filter, setFilter] = useState('all')
   const [query, setQuery] = useState('')
+  const [referenceQuery, setReferenceQuery] = useState('')
+
+  const trackByReference = () => {
+    const match = findClaimByReference(referenceQuery)
+    if (!match) {
+      toast.error('No claim found for that reference. Check the number and try again.')
+      return
+    }
+    navigate(`/claims/${match.id}`)
+  }
+
+  const handleReferenceKeyDown = (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault()
+      trackByReference()
+    }
+  }
 
   const filtered = useMemo(() => {
     let list = claims
@@ -274,13 +304,48 @@ export default function Claims() {
         }
       />
 
+      <Card className="border-border/80 shadow-sm">
+        <CardContent className="p-4 sm:p-5">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-end">
+            <div className="flex-1 min-w-0 space-y-1">
+              <div className="flex items-center gap-2">
+                <Hash className="h-4 w-4 text-muted-foreground shrink-0" />
+                <p className="text-sm font-medium text-foreground">Track by reference</p>
+              </div>
+              <p className="text-[12px] text-muted-foreground leading-relaxed">
+                Enter the reference from your confirmation email, for example{' '}
+                <span className="font-mono text-foreground/80">CLM-2025-0041</span>.
+              </p>
+            </div>
+            <div className="flex w-full sm:w-auto gap-2 sm:min-w-[320px]">
+              <Input
+                value={referenceQuery}
+                onChange={(e) => setReferenceQuery(e.target.value.toUpperCase())}
+                onKeyDown={handleReferenceKeyDown}
+                placeholder="CLM-2025-0041"
+                className="h-10 font-mono text-sm bg-secondary/50 border-border/80"
+              />
+              <Button
+                type="button"
+                variant="outline"
+                className="shrink-0"
+                onClick={trackByReference}
+                disabled={!referenceQuery.trim()}
+              >
+                Track
+              </Button>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="relative flex-1 max-w-md">
           <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search claims…"
+            placeholder="Search by type, policy, or reference…"
             className="h-10 pl-10 bg-secondary/50 border-border/80"
           />
         </div>

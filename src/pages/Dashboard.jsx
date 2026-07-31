@@ -3,7 +3,6 @@ import {
   FileText,
   ArrowRight,
   AlertTriangle,
-  Check,
   ShieldCheck,
   TrendingUp,
   CalendarClock,
@@ -21,11 +20,8 @@ import {
   getOpenClaims,
   getTotalReceivedPayments,
   getDashboardActivity,
-  getClaimById,
   policies,
 } from '@/data/mock'
-
-const featuredClaim = getClaimById('clm_001')
 
 function getGreeting() {
   const h = new Date().getHours()
@@ -59,6 +55,75 @@ function StatCard({ icon: Icon, label, value, hint, onClick }) {
           </p>
         </CardContent>
       </Card>
+    </button>
+  )
+}
+
+const claimStatusLabel = {
+  'Under Review': 'Under review',
+  'Pending Information': 'Pending info',
+}
+
+function OpenClaimProgress({ claim, onView }) {
+  const activeStep =
+    claim.journey?.find((s) => s.active) ??
+    claim.journey?.find((s) => !s.done)
+  const statusLabel = claimStatusLabel[claim.status] ?? claim.status
+  const needsAction = claim.status === 'Pending Information'
+
+  return (
+    <button
+      type="button"
+      onClick={() => onView(claim.id)}
+      className="w-full text-left rounded-xl border border-border bg-card p-4 transition-all duration-200 hover:border-foreground/15 hover:shadow-md"
+    >
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="text-sm font-medium text-foreground leading-snug truncate">
+            {claim.claimType}
+          </p>
+          <p className="text-[11px] font-mono text-muted-foreground mt-0.5">
+            {claim.reference}
+          </p>
+        </div>
+        <span
+          className={cn(
+            'text-[11px] font-medium shrink-0',
+            needsAction ? status.attention.text : status.active.text,
+          )}
+        >
+          {statusLabel}
+        </span>
+      </div>
+
+      {claim.journey?.length > 0 && (
+        <div className="mt-3 flex gap-1">
+          {claim.journey.map((step) => (
+            <span
+              key={step.step}
+              className={cn(
+                'h-1 flex-1 rounded-full',
+                step.done && 'bg-primary',
+                step.active && !step.done && 'bg-primary/35',
+                !step.done && !step.active && 'bg-border',
+              )}
+              title={step.step}
+            />
+          ))}
+        </div>
+      )}
+
+      <div className="mt-3 flex items-center justify-between gap-2">
+        <p className="text-[12px] text-muted-foreground truncate">
+          {activeStep
+            ? `Current: ${activeStep.step}`
+            : 'Processing complete'}
+        </p>
+        <span className="text-[11px] font-medium text-foreground shrink-0 inline-flex items-center gap-0.5">
+          View
+          <ArrowRight className="h-3 w-3" />
+        </span>
+      </div>
     </button>
   )
 }
@@ -223,64 +288,41 @@ export default function Dashboard() {
           </CardContent>
         </Card>
 
-        {featuredClaim && (
+        {openClaims.length > 0 ? (
+          <Card className="lg:col-span-2">
+            <CardHeader className="flex flex-row items-center justify-between gap-2">
+              <div>
+                <CardTitle>Open claims</CardTitle>
+                <p className="text-xs text-muted-foreground mt-1">
+                  {openClaims.length} in progress — tap to see full journey
+                </p>
+              </div>
+              <Button variant="ghost" size="sm" onClick={() => navigate('/claims')}>
+                All claims
+              </Button>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {openClaims.map((claim) => (
+                <OpenClaimProgress
+                  key={claim.id}
+                  claim={claim}
+                  onView={(id) => navigate(`/claims/${id}`)}
+                />
+              ))}
+            </CardContent>
+          </Card>
+        ) : (
           <Card className="lg:col-span-2">
             <CardHeader>
-              <CardTitle>Claim progress</CardTitle>
-              <p className="text-xs text-muted-foreground font-mono mt-1">
-                {featuredClaim.reference}
-              </p>
+              <CardTitle>Claims</CardTitle>
             </CardHeader>
-            <CardContent>
-              <p className="text-sm text-muted-foreground mb-5">
-                {featuredClaim.claimType}
+            <CardContent className="space-y-3">
+              <p className="text-sm text-muted-foreground">
+                No open claims right now.
               </p>
-              <ol className="space-y-4">
-                {featuredClaim.journey.map((step, i) => (
-                  <li key={step.step} className="flex items-start gap-3">
-                    <div className="flex flex-col items-center">
-                      <span
-                        className={cn(
-                          'flex h-8 w-8 items-center justify-center rounded-xl text-xs border transition-colors',
-                          step.done &&
-                            'bg-primary text-primary-foreground border-primary shadow-sm',
-                          step.active &&
-                            'border-primary bg-primary/10 text-foreground ring-4 ring-primary/10',
-                          !step.done &&
-                            !step.active &&
-                            'border-border text-muted-foreground bg-secondary/50',
-                        )}
-                      >
-                        {step.done ? (
-                          <Check className="h-4 w-4" />
-                        ) : (
-                          <span className="text-[11px] font-medium">{i + 1}</span>
-                        )}
-                      </span>
-                      {i < featuredClaim.journey.length - 1 && (
-                        <span className="w-px h-4 bg-border mt-1" />
-                      )}
-                    </div>
-                    <div className="pt-1 min-w-0 flex-1">
-                      <p
-                        className={cn(
-                          'text-sm',
-                          step.active || step.done
-                            ? 'font-medium text-foreground'
-                            : 'text-muted-foreground',
-                        )}
-                      >
-                        {step.step}
-                      </p>
-                      {step.date && (
-                        <p className="text-[11px] text-muted-foreground mt-0.5">
-                          {formatShortDate(step.date)}
-                        </p>
-                      )}
-                    </div>
-                  </li>
-                ))}
-              </ol>
+              <Button variant="outline" size="sm" onClick={() => navigate('/claims')}>
+                View claim history
+              </Button>
             </CardContent>
           </Card>
         )}
